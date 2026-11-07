@@ -1,0 +1,5 @@
+ERL-HUB DISPATCH AUDIT
+Mission ID | Type          | Status     | Vehicle | Note
+M-1001     | Medical       | Completed  | V-101   | Emergency clinic supplies delivered
+M-1002     | Shelter       | Pending    | -       | Awaiting vehicle assignment
+
