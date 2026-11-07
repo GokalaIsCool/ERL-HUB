@@ -4,19 +4,22 @@ Post-Earthquake Multi-Agency Emergency Relief Logistics Hub, implemented as a mo
 
 ## Build
 
-```bash
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-Run the application with:
+Requirements: a C++17 compiler and CMake 3.16 or newer.
 
 ```bash
-./build/erl_hub
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-On Windows with a Visual Studio generator, use `build/Debug/erl_hub.exe`.
+Run the application from the repository root so the relative `data/` directory is available:
+
+```bash
+./build/erl_hub                 # Linux/macOS, single-config generator
+# ./build/Release/erl_hub       # Visual Studio or another multi-config generator
+```
+
+On Windows, use `build\Release\erl_hub.exe` with a multi-config generator.
 
 ## Features
 
@@ -26,6 +29,9 @@ On Windows with a Visual Studio generator, use `build/Debug/erl_hub.exe`.
 - Priority dispatch queue with urgent medical ordering.
 - Atomic binary persistence in `data/erl_hub.bin`.
 - Demonstration scenario and tabular audit reporting.
+- Selectable sample scenarios for success, overload, fuel, corridor, inventory, and critical override paths.
+
+The application is intentionally launched from the repository root. Save/load uses `data/erl_hub.bin`; the UI creates `data/` if it is missing and reports write/load errors without changing in-memory state.
 
 ## Repository guide
 

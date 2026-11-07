@@ -10,6 +10,18 @@
 
 namespace erl {
 
+std::string scenarioName(DemoScenario scenario) {
+    switch (scenario) {
+    case DemoScenario::SuccessfulMedical: return "Successful medical dispatch";
+    case DemoScenario::OverloadedCargo: return "Overloaded cargo";
+    case DemoScenario::InsufficientFuel: return "Insufficient fuel";
+    case DemoScenario::DamagedCorridor: return "Damaged corridor";
+    case DemoScenario::InsufficientInventory: return "Insufficient inventory";
+    case DemoScenario::CriticalEmergency: return "Critical emergency override";
+    }
+    return "Unknown scenario";
+}
+
 bool ReliefHub::addDepot(const DistributionDepot& depotValue) {
     return depots_.emplace(depotValue.id(), depotValue).second;
 }
@@ -169,6 +181,66 @@ void ReliefHub::loadDemoScenario() {
     addMission(ReliefMission("M-1002", MissionType::Shelter, "D-01", "Camp4", "TENT", 10, 35, "road", 2));
     addMission(ReliefMission("M-1003", MissionType::Water, "D-01", "FloodZone", "WATER", 100, 20, "flooded", 1));
     if (auto* criticalMission = mission("M-1001")) IncidentCommander::overrideCriticalTriage(*criticalMission, 9);
+}
+
+void ReliefHub::loadScenario(DemoScenario scenario) {
+    if (scenario == DemoScenario::SuccessfulMedical) {
+        clear();
+        DistributionDepot depotValue("D-SUCCESS", "MedicalDepot", 5000.0);
+        depotValue += ReliefCargo("MED-KIT", "medical", 20, 5.0, 1);
+        addDepot(depotValue);
+        addVehicle(makeVehicle("Ground", "V-SUCCESS", "MedicalTeam", 1000.0, 100.0, {28.61, 77.23}));
+        addMission(ReliefMission("M-SUCCESS", MissionType::Medical, "D-SUCCESS", "Clinic", "MED-KIT", 10, 20.0, "road", 1));
+        return;
+    }
+
+    clear();
+    DistributionDepot depotValue("D-SCENARIO", "ScenarioDepot", 5000.0);
+    std::string cargoId = "WATER";
+    std::string category = "water";
+    int stockQuantity = 20;
+    double unitWeight = 1.0;
+    std::string vehicleKind = "Ground";
+    std::string vehicleId = "V-SCENARIO";
+    double vehicleCapacity = 1000.0;
+    double fuel = 100.0;
+    int missionQuantity = 10;
+    double distance = 20.0;
+    std::string corridor = "road";
+    MissionType type = MissionType::Water;
+    int priority = 3;
+    std::string missionId = "M-SCENARIO";
+
+    switch (scenario) {
+    case DemoScenario::OverloadedCargo:
+        cargoId = "HEAVY"; category = "equipment"; stockQuantity = 10; unitWeight = 100.0;
+        vehicleId = "V-OVERLOAD"; vehicleCapacity = 100.0; missionId = "M-OVERLOAD"; missionQuantity = 10;
+        break;
+    case DemoScenario::InsufficientFuel:
+        vehicleId = "V-FUEL"; fuel = 0.1; distance = 1000.0; missionId = "M-FUEL";
+        break;
+    case DemoScenario::DamagedCorridor:
+        vehicleKind = "Amphibious"; vehicleId = "V-DAMAGE"; corridor = "damaged"; missionId = "M-DAMAGE";
+        break;
+    case DemoScenario::InsufficientInventory:
+        stockQuantity = 2; vehicleId = "V-STOCK"; missionId = "M-STOCK"; missionQuantity = 10;
+        break;
+    case DemoScenario::CriticalEmergency:
+        cargoId = "MED-KIT"; category = "medical"; stockQuantity = 10; type = MissionType::Medical;
+        vehicleId = "V-CRITICAL"; missionId = "M-CRITICAL"; priority = 3;
+        break;
+    case DemoScenario::SuccessfulMedical:
+        break;
+    }
+
+    depotValue += ReliefCargo(cargoId, category, stockQuantity, unitWeight, priority);
+    addDepot(depotValue);
+    addVehicle(makeVehicle(vehicleKind, vehicleId, "ScenarioTeam", vehicleCapacity, fuel, {28.61, 77.23}));
+    addMission(ReliefMission(missionId, type, "D-SCENARIO", "ScenarioTarget", cargoId,
+                             missionQuantity, distance, corridor, priority));
+    if (scenario == DemoScenario::CriticalEmergency) {
+        if (auto* emergency = mission(missionId)) IncidentCommander::overrideCriticalTriage(*emergency, 10);
+    }
 }
 
 void ReliefHub::clear() {

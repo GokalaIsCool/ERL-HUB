@@ -1,17 +1,172 @@
 #include "erl/UserInterface.h"
+
 #include "erl/Mission.h"
 #include "erl/System.h"
+
+#include <array>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <string>
-namespace erl { namespace {
-template <typename T> T readNumber(const std::string& prompt,T fallback={}) { while(true){std::cout<<prompt;T value{};if(std::cin>>value)return value;if(std::cin.eof())return fallback;std::cin.clear();std::cin.ignore(std::numeric_limits<std::streamsize>::max(),'\n');std::cout<<"Invalid input. Please enter a number.\n";} }
-std::string readText(const std::string& prompt){std::cout<<prompt;std::string v;std::cin>>v;return v;}
-void listEntities(const ReliefHub&hub){std::cout<<"\nDepots:\n";for(const auto&[id,d]:hub.depots())std::cout<<"  "<<id<<" - "<<d.name()<<" ("<<d.currentWeightKg()<<"/"<<d.capacityKg()<<" kg)\n";std::cout<<"Vehicles:\n";for(const auto&[id,v]:hub.vehicles())std::cout<<"  "<<id<<" - "<<v->kind()<<" ("<<toString(v->status())<<", "<<v->fuelLitres()<<" L)\n";std::cout<<"Missions:\n";for(const auto&m:hub.missions())std::cout<<"  "<<m.id()<<" - "<<toString(m.type())<<" ("<<toString(m.status())<<")\n";}
-void createDepot(ReliefHub&h){auto id=readText("Depot ID: "),name=readText("Depot name: ");auto cap=readNumber<double>("Capacity kg: ");std::cout<<(h.addDepot(DistributionDepot(id,name,cap))?"Depot created.\n":"ID already exists.\n");}
-void restock(ReliefHub&h){auto*d=h.depot(readText("Depot ID: "));if(!d){std::cout<<"Depot not found.\n";return;}auto id=readText("Cargo ID: "),cat=readText("Category: ");auto q=readNumber<int>("Quantity: ");auto w=readNumber<double>("Unit weight kg: ");auto p=readNumber<int>("Priority (1 highest): ",3);try{*d+=ReliefCargo(id,cat,q,w,p);std::cout<<"Restocked.\n";}catch(const std::exception&e){std::cout<<e.what()<<"\n";}}
-void registerVehicle(ReliefHub&h){auto k=readText("Vehicle kind (Ground/Aerial/Amphibious): "),id=readText("Vehicle ID: "),a=readText("Agency: ");auto c=readNumber<double>("Payload capacity kg: "),f=readNumber<double>("Fuel litres: ");auto v=makeVehicle(k,id,a,c,f);std::cout<<(h.addVehicle(std::move(v))?"Vehicle registered.\n":"ID already exists.\n");}
-void createMission(ReliefHub&h){auto id=readText("Mission ID: ");auto t=missionTypeFromString(readText("Type (Medical/Shelter/Rescue/Food/Water): "));auto o=readText("Origin depot ID: "),dest=readText("Destination: "),cargo=readText("Cargo ID: ");auto q=readNumber<int>("Quantity: ");auto d=readNumber<double>("Distance km: ");auto cor=readText("Corridor (road/river/flooded/damaged): ");auto p=readNumber<int>("Priority (1 highest): ",3);try{std::cout<<(h.addMission(ReliefMission(id,t,o,dest,cargo,q,d,cor,p))?"Mission created.\n":"ID already exists.\n");}catch(const std::exception&e){std::cout<<e.what()<<"\n";}}
-}}
-namespace erl { void runInteractive(ReliefHub&h){while(true){std::cout<<"\nERL-HUB MENU\n1. List network\n2. Load demonstration scenario\n3. Create depot\n4. Restock depot\n5. Register vehicle\n6. Create mission\n7. Dispatch mission\n8. Save snapshot\n9. Load snapshot\n10. Runtime polymorphism demo\n11. Priority dispatch report\n12. Print audit report\n0. Exit\n";int c=readNumber<int>("Choice: ");if(c==0)return;if(c==1)listEntities(h);else if(c==2){h.loadDemoScenario();std::cout<<"Demo loaded.\n";}else if(c==3)createDepot(h);else if(c==4)restock(h);else if(c==5)registerVehicle(h);else if(c==6)createMission(h);else if(c==7){auto missionId=readText("Mission ID: ");auto vehicleId=readText("Vehicle ID: ");auto r=h.dispatchMission(missionId,vehicleId);std::cout<<(r.success?"SUCCESS: ":"FAILED: ")<<r.message<<'\n';}else if(c==8){std::string e;std::cout<<(h.save("data/erl_hub.bin",e)?"Saved.\n":e+"\n");}else if(c==9){std::string e;std::cout<<(h.load("data/erl_hub.bin",e)?"Loaded.\n":e+"\n");}else if(c==10)std::cout<<h.runtimeDispatchDemo();else if(c==11)std::cout<<h.priorityDispatchReport();else if(c==12)std::cout<<h.auditReport();else std::cout<<"Unknown menu choice.\n";}}
+#include <utility>
+
+namespace erl {
+namespace {
+
+template <typename T>
+T readNumber(const std::string& prompt, std::istream& input, std::ostream& output, T fallback = {}) {
+    while (true) {
+        output << prompt;
+        T value{};
+        if (input >> value) return value;
+        if (input.eof()) return fallback;
+        input.clear();
+        input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        output << "Invalid input. Please enter a number.\n";
+    }
 }
+
+std::string readText(const std::string& prompt, std::istream& input, std::ostream& output) {
+    output << prompt;
+    std::string value;
+    input >> value;
+    return value;
+}
+
+void listEntities(const ReliefHub& hub, std::ostream& output) {
+    output << "\nDepots:\n";
+    for (const auto& [id, depot] : hub.depots()) {
+        output << "  " << id << " - " << depot.name() << " ("
+               << depot.currentWeightKg() << "/" << depot.capacityKg() << " kg)\n";
+    }
+    output << "Vehicles:\n";
+    for (const auto& [id, vehicle] : hub.vehicles()) {
+        output << "  " << id << " - " << vehicle->kind() << " ("
+               << toString(vehicle->status()) << ", " << vehicle->fuelLitres() << " L)\n";
+    }
+    output << "Missions:\n";
+    for (const auto& mission : hub.missions()) {
+        output << "  " << mission.id() << " - " << toString(mission.type()) << " ("
+               << toString(mission.status()) << ")\n";
+    }
+}
+
+void loadScenarioMenu(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    constexpr std::array scenarios{
+        DemoScenario::SuccessfulMedical,
+        DemoScenario::OverloadedCargo,
+        DemoScenario::InsufficientFuel,
+        DemoScenario::DamagedCorridor,
+        DemoScenario::InsufficientInventory,
+        DemoScenario::CriticalEmergency};
+    output << "\nSAMPLE SCENARIOS\n";
+    for (std::size_t index = 0; index < scenarios.size(); ++index) {
+        output << (index + 1) << ". " << scenarioName(scenarios[index]) << '\n';
+    }
+    output << "0. Cancel\n";
+    const int choice = readNumber<int>("Scenario: ", input, output);
+    if (choice < 1 || choice > static_cast<int>(scenarios.size())) return;
+    hub.loadScenario(scenarios[static_cast<std::size_t>(choice - 1)]);
+    output << "Loaded: " << scenarioName(scenarios[static_cast<std::size_t>(choice - 1)]) << "\n";
+}
+
+void createDepot(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    const auto id = readText("Depot ID: ", input, output);
+    const auto name = readText("Depot name: ", input, output);
+    const auto capacity = readNumber<double>("Capacity kg: ", input, output);
+    output << (hub.addDepot(DistributionDepot(id, name, capacity))
+                   ? "Depot created.\n"
+                   : "ID already exists.\n");
+}
+
+void restock(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    auto* depot = hub.depot(readText("Depot ID: ", input, output));
+    if (!depot) { output << "Depot not found.\n"; return; }
+    const auto cargoId = readText("Cargo ID: ", input, output);
+    const auto category = readText("Category: ", input, output);
+    const auto quantity = readNumber<int>("Quantity: ", input, output);
+    const auto weight = readNumber<double>("Unit weight kg: ", input, output);
+    const auto priority = readNumber<int>("Priority (1 highest): ", input, output, 3);
+    try {
+        *depot += ReliefCargo(cargoId, category, quantity, weight, priority);
+        output << "Restocked.\n";
+    } catch (const std::exception& exception) {
+        output << exception.what() << "\n";
+    }
+}
+
+void registerVehicle(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    const auto kind = readText("Vehicle kind (Ground/Aerial/Amphibious): ", input, output);
+    const auto id = readText("Vehicle ID: ", input, output);
+    const auto agency = readText("Agency: ", input, output);
+    const auto capacity = readNumber<double>("Payload capacity kg: ", input, output);
+    const auto fuel = readNumber<double>("Fuel litres: ", input, output);
+    auto vehicle = makeVehicle(kind, id, agency, capacity, fuel);
+    output << (hub.addVehicle(std::move(vehicle))
+                   ? "Vehicle registered.\n"
+                   : "Vehicle data invalid or ID already exists.\n");
+}
+
+void createMission(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    const auto id = readText("Mission ID: ", input, output);
+    const auto type = missionTypeFromString(readText("Type (Medical/Shelter/Rescue/Food/Water): ", input, output));
+    const auto origin = readText("Origin depot ID: ", input, output);
+    const auto destination = readText("Destination: ", input, output);
+    const auto cargoId = readText("Cargo ID: ", input, output);
+    const auto quantity = readNumber<int>("Quantity: ", input, output);
+    const auto distance = readNumber<double>("Distance km: ", input, output);
+    const auto corridor = readText("Corridor (road/river/flooded/damaged): ", input, output);
+    const auto priority = readNumber<int>("Priority (1 highest): ", input, output, 3);
+    try {
+        output << (hub.addMission(ReliefMission(id, type, origin, destination, cargoId,
+                                                 quantity, distance, corridor, priority))
+                       ? "Mission created.\n"
+                       : "ID already exists.\n");
+    } catch (const std::exception& exception) {
+        output << exception.what() << "\n";
+    }
+}
+
+} // namespace
+
+void runInteractive(ReliefHub& hub) {
+    runInteractive(hub, std::cin, std::cout);
+}
+
+void runInteractive(ReliefHub& hub, std::istream& input, std::ostream& output) {
+    while (true) {
+        output << "\nERL-HUB MENU\n"
+               << "1. List network\n2. Load sample scenario\n3. Create depot\n"
+               << "4. Restock depot\n5. Register vehicle\n6. Create mission\n"
+               << "7. Dispatch mission\n8. Save snapshot\n9. Load snapshot\n"
+               << "10. Runtime polymorphism demo\n11. Priority dispatch report\n"
+               << "12. Print audit report\n0. Exit\n";
+        const int choice = readNumber<int>("Choice: ", input, output);
+        if (choice == 0) return;
+        if (choice == 1) listEntities(hub, output);
+        else if (choice == 2) loadScenarioMenu(hub, input, output);
+        else if (choice == 3) createDepot(hub, input, output);
+        else if (choice == 4) restock(hub, input, output);
+        else if (choice == 5) registerVehicle(hub, input, output);
+        else if (choice == 6) createMission(hub, input, output);
+        else if (choice == 7) {
+            const auto missionId = readText("Mission ID: ", input, output);
+            const auto vehicleId = readText("Vehicle ID: ", input, output);
+            const auto result = hub.dispatchMission(missionId, vehicleId);
+            output << (result.success ? "SUCCESS: " : "FAILED: ") << result.message << '\n';
+        } else if (choice == 8) {
+            std::error_code directoryError;
+            std::filesystem::create_directories("data", directoryError);
+            std::string error;
+            output << (hub.save("data/erl_hub.bin", error) ? "Saved.\n" : error + "\n");
+        } else if (choice == 9) {
+            std::string error;
+            output << (hub.load("data/erl_hub.bin", error) ? "Loaded.\n" : error + "\n");
+        } else if (choice == 10) output << hub.runtimeDispatchDemo();
+        else if (choice == 11) output << hub.priorityDispatchReport();
+        else if (choice == 12) output << hub.auditReport();
+        else output << "Unknown menu choice.\n";
+    }
+}
+
+} // namespace erl

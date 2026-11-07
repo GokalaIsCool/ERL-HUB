@@ -1,6 +1,7 @@
 #include "erl/Mission.h"
 #include "erl/PriorityDispatchQueue.h"
 #include "erl/System.h"
+#include "erl/UserInterface.h"
 #include "erl/Utilities.h"
 
 #include <cassert>
@@ -296,6 +297,59 @@ void testUnitIVCorruptInvalidAndFailedWrites() {
     std::filesystem::remove(validPath);
 }
 
+void testPhaseFiveScenariosAndInteractiveWorkflow() {
+    struct ScenarioExpectation {
+        DemoScenario scenario;
+        const char* missionId;
+        const char* vehicleId;
+        bool shouldDispatch;
+        const char* failureText;
+    };
+    const ScenarioExpectation expectations[] = {
+        {DemoScenario::SuccessfulMedical, "M-SUCCESS", "V-SUCCESS", true, ""},
+        {DemoScenario::OverloadedCargo, "M-OVERLOAD", "V-OVERLOAD", false, "Cargo overweight"},
+        {DemoScenario::InsufficientFuel, "M-FUEL", "V-FUEL", false, "Fuel depletion"},
+        {DemoScenario::DamagedCorridor, "M-DAMAGE", "V-DAMAGE", false, "Damaged corridor"},
+        {DemoScenario::InsufficientInventory, "M-STOCK", "V-STOCK", false, "Insufficient depot inventory"},
+    };
+
+    for (const auto& expectation : expectations) {
+        ReliefHub hub;
+        hub.loadScenario(expectation.scenario);
+        const auto stockBefore = hub.depots().begin()->second.currentWeightKg();
+        const auto result = hub.dispatchMission(expectation.missionId, expectation.vehicleId);
+        assert(result.success == expectation.shouldDispatch);
+        if (!expectation.shouldDispatch) {
+            assert(result.message.find(expectation.failureText) != std::string::npos);
+            assert(hub.depots().begin()->second.currentWeightKg() == stockBefore);
+            assert(hub.mission(expectation.missionId)->status() == MissionStatus::Planned);
+            assert(hub.vehicle(expectation.vehicleId)->status() == VehicleStatus::Available);
+            assert(hub.history().empty());
+        } else {
+            assert(hub.mission(expectation.missionId)->status() == MissionStatus::Completed);
+            assert(hub.history().size() == 1);
+        }
+    }
+
+    ReliefHub criticalHub;
+    criticalHub.loadScenario(DemoScenario::CriticalEmergency);
+    assert(criticalHub.mission("M-CRITICAL")->critical());
+    assert(criticalHub.mission("M-CRITICAL")->priority() == 1);
+    assert(criticalHub.dispatchMission("M-CRITICAL", "V-CRITICAL").success);
+
+    ReliefHub interactiveHub;
+    std::istringstream input("2\n1\n7\nM-SUCCESS\nV-SUCCESS\n8\n9\n12\n0\n");
+    std::ostringstream output;
+    runInteractive(interactiveHub, input, output);
+    const auto transcript = output.str();
+    assert(transcript.find("Loaded: Successful medical dispatch") != std::string::npos);
+    assert(transcript.find("SUCCESS:") != std::string::npos);
+    assert(transcript.find("Saved.") != std::string::npos);
+    assert(transcript.find("Loaded.") != std::string::npos);
+    assert(transcript.find("ERL-HUB DISPATCH AUDIT") != std::string::npos);
+    std::filesystem::remove("data/erl_hub.bin");
+}
+
 int main() {
     testUnitIUtilitiesAndReferences();
     testUnitIIValueSemanticsAndOperators();
@@ -307,5 +361,6 @@ int main() {
     testUnitIVQueueSortingAndManipulators();
     testUnitIVExceptionsAndFailedTransactions();
     testUnitIVCorruptInvalidAndFailedWrites();
+    testPhaseFiveScenariosAndInteractiveWorkflow();
     std::cout << "All ERL-HUB Unit I/II/III/IV tests passed.\n";
 }
