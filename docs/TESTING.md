@@ -6,6 +6,7 @@ The `erl_tests` executable covers:
 - Unit II encapsulated cargo/depot/vehicle values, static analytics, stream/operator round trips, and dynamic manifests;
 - deep-copy behavior of dynamic vehicle manifests and destructor accounting;
 - Unit III abstract-base pointers, virtual-inheritance traits, GPS/life-support composition, runtime dispatch, and virtual destruction;
+- Unit IV priority queues, urgent-mission ordering, stream manipulators, exception paths, restart restoration, corrupted snapshots, invalid records, failed writes, and transactional dispatch failures;
 - polymorphic vehicle range and virtual-inheritance construction;
 - priority ordering of urgent medical missions;
 - failed-dispatch atomicity;

@@ -1,8 +1,10 @@
 #include "erl/System.h"
 
 #include "erl/Formatters.h"
+#include "erl/PriorityDispatchQueue.h"
 #include "erl/Utilities.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 
@@ -85,10 +87,29 @@ std::string ReliefHub::runtimeDispatchDemo() const {
     return report.str();
 }
 
+std::string ReliefHub::priorityDispatchReport() const {
+    std::vector<ReliefMission> sorted = missions_;
+    std::stable_sort(sorted.begin(), sorted.end(), [](const ReliefMission& left, const ReliefMission& right) {
+        return UrgentMedicalFirst{}(right, left);
+    });
+
+    PriorityDispatchQueue<ReliefMission, UrgentMedicalFirst> queue;
+    for (const auto& item : missions_) queue.push(item);
+
+    std::ostringstream report;
+    report << "PRIORITY DISPATCH ORDER\nSorted: ";
+    for (const auto& item : sorted) report << item.id() << ' ';
+    report << "\nQueue: ";
+    while (!queue.empty()) report << queue.pop().id() << ' ';
+    report << '\n';
+    return report.str();
+}
+
 std::string ReliefHub::auditReport() const {
     std::ostringstream report;
     report << "ERL-HUB DISPATCH AUDIT\n";
     report << runtimeDispatchDemo();
+    report << priorityDispatchReport();
     report << "Registered vehicles: " << TransportVehicle::totalRegistered() << '\n';
     report << "Network depot capacity: " << DistributionDepot::totalCapacityKg() << " kg\n";
     report << tableSeparator;

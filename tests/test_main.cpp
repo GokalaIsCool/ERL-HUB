@@ -4,7 +4,9 @@
 #include "erl/Utilities.h"
 
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <type_traits>
@@ -178,13 +180,120 @@ void testPersistenceRoundTrip() {
     hub.loadDemoScenario();
     const std::string path = "data/test_roundtrip.bin";
     std::string error;
+    assert(hub.dispatchMission("M-1001", "V-101").success);
     assert(hub.save(path, error));
     ReliefHub restored;
     assert(restored.load(path, error));
     assert(restored.depots().size() == 1);
     assert(restored.vehicles().size() == 3);
     assert(restored.missions().size() == 3);
+    assert(restored.mission("M-1001")->status() == MissionStatus::Completed);
+    assert(restored.depot("D-01")->cargo("MED-KIT")->quantity() == 80);
+    assert(restored.history().size() == 1);
     std::filesystem::remove(path);
+}
+
+void testUnitIVQueueSortingAndManipulators() {
+    PriorityDispatchQueue<int> numbers;
+    numbers.push(2);
+    numbers.push(5);
+    assert(numbers.size() == 2);
+    assert(numbers.pop() == 5);
+    assert(numbers.pop() == 2);
+
+    ReliefHub hub;
+    hub.loadDemoScenario();
+    const auto priorityReport = hub.priorityDispatchReport();
+    assert(priorityReport.find("Sorted: M-1001 M-1002 M-1003") != std::string::npos);
+    assert(priorityReport.find("Queue: M-1001 M-1002 M-1003") != std::string::npos);
+    assert(hub.auditReport().find("+----------------") != std::string::npos);
+}
+
+void testUnitIVExceptionsAndFailedTransactions() {
+    bool overweightThrown = false;
+    try {
+        DistributionDepot depot("D", "Small", 10.0);
+        depot += ReliefCargo("heavy", "equipment", 2, 10.0);
+    } catch (const CargoOverweightException& exception) {
+        overweightThrown = std::string(exception.what()).find("Cargo overweight") != std::string::npos;
+    }
+    assert(overweightThrown);
+
+    ReliefHub hub;
+    hub.loadDemoScenario();
+    const int waterBefore = hub.depot("D-01")->cargo("WATER")->quantity();
+    hub.addMission(ReliefMission("M-DAMAGED", MissionType::Water, "D-01", "Zone", "WATER", 10, 5.0, "damaged"));
+    auto result = hub.dispatchMission("M-DAMAGED", "V-303");
+    assert(!result.success);
+    assert(result.message.find("Damaged corridor") != std::string::npos);
+    assert(hub.depot("D-01")->cargo("WATER")->quantity() == waterBefore);
+    assert(hub.mission("M-DAMAGED")->status() == MissionStatus::Planned);
+
+    hub.addVehicle(makeVehicle("Ground", "V-LOW", "Agency", 1000.0, 0.1));
+    hub.addMission(ReliefMission("M-FUEL", MissionType::Water, "D-01", "Zone", "WATER", 10, 100.0, "road"));
+    result = hub.dispatchMission("M-FUEL", "V-LOW");
+    assert(!result.success);
+    assert(result.message.find("Fuel depletion") != std::string::npos);
+    assert(hub.depot("D-01")->cargo("WATER")->quantity() == waterBefore);
+    assert(hub.mission("M-FUEL")->status() == MissionStatus::Planned);
+
+    hub.addMission(ReliefMission("M-MISSING", MissionType::Water, "D-01", "Zone", "WATER", 10000, 1.0, "road"));
+    result = hub.dispatchMission("M-MISSING", "V-101");
+    assert(!result.success);
+    assert(result.message.find("Insufficient depot inventory") != std::string::npos);
+    assert(hub.depot("D-01")->cargo("WATER")->quantity() == waterBefore);
+}
+
+void testUnitIVCorruptInvalidAndFailedWrites() {
+    ReliefHub original;
+    original.loadDemoScenario();
+    const std::string corruptPath = "data/corrupt_snapshot.bin";
+    const std::string invalidPath = "data/invalid_snapshot.bin";
+    const std::string validPath = "data/valid_snapshot.bin";
+    const std::string missingParentPath = "data/does-not-exist/snapshot.bin";
+    std::string error;
+
+    {
+        std::fstream file(corruptPath, std::ios::binary | std::ios::out | std::ios::trunc);
+        file.write("BAD", 3);
+    }
+    assert(!original.load(corruptPath, error));
+    assert(!error.empty());
+    assert(original.missions().size() == 3);
+
+    auto writeString = [](std::fstream& file, const std::string& value) {
+        const auto size = static_cast<std::uint32_t>(value.size());
+        file.write(reinterpret_cast<const char*>(&size), sizeof(size));
+        file.write(value.data(), static_cast<std::streamsize>(size));
+    };
+    {
+        std::fstream file(invalidPath, std::ios::binary | std::ios::out | std::ios::trunc);
+        const std::uint32_t magic = 0x45524C31U;
+        const std::uint32_t version = 1U;
+        const std::uint32_t depotCount = 1U;
+        const double negativeCapacity = -10.0;
+        file.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+        file.write(reinterpret_cast<const char*>(&version), sizeof(version));
+        file.write(reinterpret_cast<const char*>(&depotCount), sizeof(depotCount));
+        writeString(file, "D-BAD");
+        writeString(file, "BadDepot");
+        file.write(reinterpret_cast<const char*>(&negativeCapacity), sizeof(negativeCapacity));
+    }
+    assert(!original.load(invalidPath, error));
+    assert(error.find("Invalid depot record") != std::string::npos);
+    assert(original.depots().size() == 1);
+
+    assert(original.save(validPath, error));
+    std::filesystem::remove_all("data/does-not-exist");
+    assert(!original.save(missingParentPath, error));
+    assert(!error.empty());
+    ReliefHub restored;
+    assert(restored.load(validPath, error));
+    assert(restored.missions().size() == 3);
+
+    std::filesystem::remove(corruptPath);
+    std::filesystem::remove(invalidPath);
+    std::filesystem::remove(validPath);
 }
 
 int main() {
@@ -195,5 +304,8 @@ int main() {
     testUnitIIIInheritanceAndDestruction();
     testApplicationUsesBothAllocationPathsAndAtomicity();
     testPersistenceRoundTrip();
-    std::cout << "All ERL-HUB Unit I/II/III tests passed.\n";
+    testUnitIVQueueSortingAndManipulators();
+    testUnitIVExceptionsAndFailedTransactions();
+    testUnitIVCorruptInvalidAndFailedWrites();
+    std::cout << "All ERL-HUB Unit I/II/III/IV tests passed.\n";
 }
