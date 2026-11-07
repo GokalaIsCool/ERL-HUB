@@ -10,12 +10,12 @@ class TransportVehicle {
 public:
     TransportVehicle(); TransportVehicle(std::string, std::string, double, double); TransportVehicle(const TransportVehicle&); TransportVehicle& operator=(const TransportVehicle&); virtual ~TransportVehicle();
     const std::string& id() const noexcept { return id_; } const std::string& agency() const noexcept { return agency_; } double capacityKg() const noexcept { return capacityKg_; } double fuelLitres() const noexcept { return fuelLitres_; } double manifestWeightKg() const noexcept { return manifestWeightKg_; } VehicleStatus status() const noexcept { return status_; }
-    void setStatus(VehicleStatus s) noexcept { status_ = s; } void setFuelLitres(double f) noexcept { fuelLitres_ = f; } bool canCarry(double w) const noexcept { return manifestWeightKg_ + w <= capacityKg_; } static int totalRegistered() noexcept { return totalRegistered_; }
+    void setStatus(VehicleStatus s) noexcept { status_ = s; } void setFuelLitres(double f); bool canCarry(double w) const noexcept { return manifestWeightKg_ + w <= capacityKg_; } static int totalRegistered() noexcept { return totalRegistered_; }
     virtual std::string kind() const { return "Transport"; } virtual double rangeKm() const noexcept; virtual double fuelRequired(double) const noexcept;
     TransportVehicle& operator+=(const ReliefCargo&); TransportVehicle& operator-=(const ReliefCargo&); bool operator==(const TransportVehicle& other) const noexcept { return id_ == other.id_; }
     friend std::ostream& operator<<(std::ostream&, const TransportVehicle&); friend std::istream& operator>>(std::istream&, TransportVehicle&);
 private:
-    void clearManifest() noexcept; std::string id_; std::string agency_; double capacityKg_{0.0}; double fuelLitres_{0.0}; double manifestWeightKg_{0.0}; VehicleStatus status_{VehicleStatus::Available}; ReliefCargo** manifest_{nullptr}; std::size_t manifestSize_{0}; std::size_t manifestCapacity_{0}; static int totalRegistered_;
+    void clearManifest() noexcept; void swap(TransportVehicle& other) noexcept; std::string id_; std::string agency_; double capacityKg_{0.0}; double fuelLitres_{0.0}; double manifestWeightKg_{0.0}; VehicleStatus status_{VehicleStatus::Available}; ReliefCargo** manifest_{nullptr}; std::size_t manifestSize_{0}; std::size_t manifestCapacity_{0}; static int totalRegistered_;
 };
 class GPSBeacon { public: explicit GPSBeacon(GPSCoordinate c = {}) : coordinate_(c) {} GPSCoordinate coordinate() const noexcept { return coordinate_; } void setCoordinate(GPSCoordinate c) noexcept { coordinate_ = c; } private: GPSCoordinate coordinate_; };
 class EmergencyLifeSupportUnit { public: explicit EmergencyLifeSupportUnit(bool active = true) : active_(active) {} bool active() const noexcept { return active_; } void setActive(bool a) noexcept { active_ = a; } private: bool active_{true}; };

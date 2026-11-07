@@ -52,6 +52,7 @@ bool validPriority(int value) { return value >= 1 && value <= 100; }
 } // namespace
 
 bool BinaryPersistence::save(const ReliefHub& hub, const std::string& path, std::string& error) {
+    error.clear();
     const std::string temporaryPath = path + ".tmp";
     std::fstream file(temporaryPath, std::ios::binary | std::ios::out | std::ios::trunc);
     auto fail = [&](const std::string& message) {
@@ -112,6 +113,7 @@ bool BinaryPersistence::save(const ReliefHub& hub, const std::string& path, std:
     for (const auto& mission : hub.missions_) {
         const int type = static_cast<int>(mission.type());
         const int status = static_cast<int>(mission.status());
+        const std::uint8_t critical = mission.critical_ ? 1U : 0U;
         if (mission.id().empty() || mission.originDepot().empty() || mission.destination().empty() ||
             mission.cargoId().empty() || mission.quantity() <= 0 || !validFinite(mission.distanceKm()) ||
             mission.distanceKm() < 0.0 || !validPriority(mission.priority()) || !validMissionType(type) ||
@@ -120,7 +122,7 @@ bool BinaryPersistence::save(const ReliefHub& hub, const std::string& path, std:
             !writeString(file, mission.cargoId()) || !writeValue(file, mission.quantity()) ||
             !writeValue(file, mission.distanceKm()) || !writeString(file, mission.corridor()) ||
             !writeValue(file, mission.priority()) || !writeValue(file, status) ||
-            !writeString(file, mission.assignedVehicleId()) || !writeValue(file, mission.critical_)) {
+            !writeString(file, mission.assignedVehicleId()) || !writeValue(file, critical)) {
             return fail("Invalid mission record");
         }
     }
@@ -165,6 +167,7 @@ bool BinaryPersistence::save(const ReliefHub& hub, const std::string& path, std:
 }
 
 bool BinaryPersistence::load(ReliefHub& hub, const std::string& path, std::string& error) {
+    error.clear();
     std::fstream file(path, std::ios::binary | std::ios::in);
     if (!file) { error = "Persistence file does not exist"; return false; }
 
@@ -245,19 +248,19 @@ bool BinaryPersistence::load(ReliefHub& hub, const std::string& path, std::strin
             int priority = 0;
             int status = 0;
             double distance = 0.0;
-            bool critical = false;
+            std::uint8_t critical = 0;
             if (!readString(file, id) || !readValue(file, type) || !validMissionType(type) ||
                 !readString(file, origin) || !readString(file, destination) || !readString(file, cargoId) ||
                 id.empty() || origin.empty() || destination.empty() || cargoId.empty() || !readValue(file, quantity) ||
                 quantity <= 0 || !readValue(file, distance) || !validFinite(distance) || distance < 0.0 ||
                 !readString(file, corridor) || !readValue(file, priority) || !validPriority(priority) ||
                 !readValue(file, status) || !validMissionStatus(status) || !readString(file, assignedVehicle) ||
-                !readValue(file, critical)) return fail("Invalid mission record");
+                !readValue(file, critical) || critical > 1U) return fail("Invalid mission record");
             ReliefMission mission(id, static_cast<MissionType>(type), origin, destination, cargoId,
                                   quantity, distance, corridor, priority);
             mission.status_ = static_cast<MissionStatus>(status);
             mission.assignedVehicleId_ = assignedVehicle;
-            mission.critical_ = critical;
+            mission.critical_ = critical != 0U;
             if (!loaded.addMission(mission)) return fail("Duplicate mission ID");
             loaded.missions_.back().status_ = mission.status_;
             loaded.missions_.back().assignedVehicleId_ = mission.assignedVehicleId_;

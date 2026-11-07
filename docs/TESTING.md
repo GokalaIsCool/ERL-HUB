@@ -8,6 +8,8 @@ The `erl_tests` executable covers:
 - Unit III abstract-base pointers, virtual-inheritance traits, GPS/life-support composition, runtime dispatch, and virtual destruction;
 - Unit IV priority queues, urgent-mission ordering, stream manipulators, exception paths, restart restoration, corrupted snapshots, invalid records, failed writes, and transactional dispatch failures;
 - Phase 5 end-to-end menu input/output, all six sample scenarios, persistent output after reload, and preservation of failed-operation state.
+
+The final audit and correction record is maintained in [docs/AUDIT.md](AUDIT.md).
 - polymorphic vehicle range and virtual-inheritance construction;
 - priority ordering of urgent medical missions;
 - failed-dispatch atomicity;

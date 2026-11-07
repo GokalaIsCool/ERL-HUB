@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <type_traits>
 
 using namespace erl;
@@ -138,6 +139,10 @@ void testUnitIIIInheritanceAndDestruction() {
     assert(amphibiousBase->beacon().coordinate().latitude == 28.61);
     assert(amphibiousBase->lifeSupport().active());
     assert(!amphibiousBase->isAirborne());
+    assert(amphibious.hasFuelFor(10.0));
+    assert(amphibious.supportsWaterCorridor("river"));
+    assert(static_cast<ReliefVehicle*>(static_cast<FuelPoweredVehicle*>(&amphibious)) == amphibiousBase);
+    assert(static_cast<ReliefVehicle*>(static_cast<FloatCapableVehicle*>(&amphibious)) == amphibiousBase);
 
     ReliefHub hub;
     hub.loadDemoScenario();
@@ -350,6 +355,33 @@ void testPhaseFiveScenariosAndInteractiveWorkflow() {
     assert(transcript.find("Loaded.") != std::string::npos);
     assert(transcript.find("ERL-HUB DISPATCH AUDIT") != std::string::npos);
     std::filesystem::remove("data/erl_hub.bin");
+
+    ReliefHub inputHub;
+    std::istringstream spacedInput("3\nD-UI\nCentral Depot\n1000\n5\nGround\nV-UI\nMedical Team\n100\n100\n0\n");
+    std::ostringstream spacedOutput;
+    runInteractive(inputHub, spacedInput, spacedOutput);
+    assert(inputHub.depot("D-UI") != nullptr);
+    assert(inputHub.depot("D-UI")->name() == "Central Depot");
+    assert(inputHub.vehicle("V-UI") != nullptr);
+    assert(inputHub.vehicle("V-UI")->agency() == "Medical Team");
+}
+
+void testAuditInputValidation() {
+    assert(makeVehicle("Unknown", "V", "Agency", 10.0, 10.0) == nullptr);
+
+    bool rejected = false;
+    try { ReliefCargo("", "medical", 1, 1.0); } catch (const std::invalid_argument&) { rejected = true; }
+    assert(rejected);
+    rejected = false;
+    try { DistributionDepot("D", "Depot", -1.0); } catch (const std::invalid_argument&) { rejected = true; }
+    assert(rejected);
+    rejected = false;
+    try { ReliefMission("M", MissionType::Food, "D", "X", "C", 1, 1.0, "road", 0); } catch (const std::invalid_argument&) { rejected = true; }
+    assert(rejected);
+
+    std::stringstream invalidCargo("bad medical -1 1 3");
+    ReliefCargo cargo;
+    assert(!(invalidCargo >> cargo));
 }
 
 int main() {
@@ -364,5 +396,6 @@ int main() {
     testUnitIVExceptionsAndFailedTransactions();
     testUnitIVCorruptInvalidAndFailedWrites();
     testPhaseFiveScenariosAndInteractiveWorkflow();
+    testAuditInputValidation();
     std::cout << "All ERL-HUB Unit I/II/III/IV tests passed.\n";
 }

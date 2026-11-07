@@ -29,7 +29,8 @@ T readNumber(const std::string& prompt, std::istream& input, std::ostream& outpu
 std::string readText(const std::string& prompt, std::istream& input, std::ostream& output) {
     output << prompt;
     std::string value;
-    input >> value;
+    input >> std::ws;
+    std::getline(input, value);
     return value;
 }
 
@@ -74,9 +75,13 @@ void createDepot(ReliefHub& hub, std::istream& input, std::ostream& output) {
     const auto id = readText("Depot ID: ", input, output);
     const auto name = readText("Depot name: ", input, output);
     const auto capacity = readNumber<double>("Capacity kg: ", input, output);
-    output << (hub.addDepot(DistributionDepot(id, name, capacity))
-                   ? "Depot created.\n"
-                   : "ID already exists.\n");
+    try {
+        output << (hub.addDepot(DistributionDepot(id, name, capacity))
+                       ? "Depot created.\n"
+                       : "ID already exists.\n");
+    } catch (const std::exception& exception) {
+        output << exception.what() << "\n";
+    }
 }
 
 void restock(ReliefHub& hub, std::istream& input, std::ostream& output) {
@@ -101,15 +106,19 @@ void registerVehicle(ReliefHub& hub, std::istream& input, std::ostream& output) 
     const auto agency = readText("Agency: ", input, output);
     const auto capacity = readNumber<double>("Payload capacity kg: ", input, output);
     const auto fuel = readNumber<double>("Fuel litres: ", input, output);
-    auto vehicle = makeVehicle(kind, id, agency, capacity, fuel);
-    output << (hub.addVehicle(std::move(vehicle))
-                   ? "Vehicle registered.\n"
-                   : "Vehicle data invalid or ID already exists.\n");
+    try {
+        auto vehicle = makeVehicle(kind, id, agency, capacity, fuel);
+        output << (hub.addVehicle(std::move(vehicle))
+                       ? "Vehicle registered.\n"
+                       : "Vehicle data invalid or ID already exists.\n");
+    } catch (const std::exception& exception) {
+        output << exception.what() << "\n";
+    }
 }
 
 void createMission(ReliefHub& hub, std::istream& input, std::ostream& output) {
     const auto id = readText("Mission ID: ", input, output);
-    const auto type = missionTypeFromString(readText("Type (Medical/Shelter/Rescue/Food/Water): ", input, output));
+    const auto typeText = readText("Type (Medical/Shelter/Rescue/Food/Water): ", input, output);
     const auto origin = readText("Origin depot ID: ", input, output);
     const auto destination = readText("Destination: ", input, output);
     const auto cargoId = readText("Cargo ID: ", input, output);
@@ -118,6 +127,11 @@ void createMission(ReliefHub& hub, std::istream& input, std::ostream& output) {
     const auto corridor = readText("Corridor (road/river/flooded/damaged): ", input, output);
     const auto priority = readNumber<int>("Priority (1 highest): ", input, output, 3);
     try {
+        if (!isMissionTypeString(typeText)) {
+            output << "Unknown mission type.\n";
+            return;
+        }
+        const auto type = missionTypeFromString(typeText);
         output << (hub.addMission(ReliefMission(id, type, origin, destination, cargoId,
                                                  quantity, distance, corridor, priority))
                        ? "Mission created.\n"

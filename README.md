@@ -42,5 +42,5 @@ The application is intentionally launched from the repository root. Save/load us
 - `data/`: sample input and runtime persistence location.
 - `sample_outputs/`: example report output.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/CIC211_MAPPING.md](docs/CIC211_MAPPING.md), [docs/USER_GUIDE.md](docs/USER_GUIDE.md), and [docs/TESTING.md](docs/TESTING.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/CIC211_MAPPING.md](docs/CIC211_MAPPING.md), [docs/USER_GUIDE.md](docs/USER_GUIDE.md), [docs/TESTING.md](docs/TESTING.md), and [docs/AUDIT.md](docs/AUDIT.md).
 
