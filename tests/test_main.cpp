@@ -4,6 +4,10 @@
 #include "erl/UserInterface.h"
 #include "erl/Utilities.h"
 
+// Keep assertions active even when the project is built in Release mode.
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cstdint>
 #include <filesystem>

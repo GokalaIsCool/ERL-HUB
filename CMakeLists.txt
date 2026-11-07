@@ -38,7 +38,7 @@ else()
 endif()
 
 enable_testing()
-add_executable(erl_tests tests/test_main.cpp)
+add_executable(erl_tests tests/test_main.cpp src/UserInterface.cpp)
 target_link_libraries(erl_tests PRIVATE erl_core)
 if(MSVC)
     target_compile_options(erl_tests PRIVATE /W4)
