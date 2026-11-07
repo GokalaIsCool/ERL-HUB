@@ -179,6 +179,7 @@ void testApplicationUsesBothAllocationPathsAndAtomicity() {
 void testPersistenceRoundTrip() {
     ReliefHub hub;
     hub.loadDemoScenario();
+    std::filesystem::create_directories("data");
     const std::string path = "data/test_roundtrip.bin";
     std::string error;
     assert(hub.dispatchMission("M-1001", "V-101").success);
@@ -248,6 +249,7 @@ void testUnitIVExceptionsAndFailedTransactions() {
 void testUnitIVCorruptInvalidAndFailedWrites() {
     ReliefHub original;
     original.loadDemoScenario();
+    std::filesystem::create_directories("data");
     const std::string corruptPath = "data/corrupt_snapshot.bin";
     const std::string invalidPath = "data/invalid_snapshot.bin";
     const std::string validPath = "data/valid_snapshot.bin";
