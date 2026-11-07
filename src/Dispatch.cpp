@@ -26,11 +26,10 @@ DispatchResult DispatchCoordinator::dispatch(ReliefMission& mission,
         if (!vehicle.canCarry(weight)) {
             throw CargoOverweightException(weight + vehicle.manifestWeightKg(), vehicle.capacityKg());
         }
-        if (mission.corridor() == "damaged") {
-            throw DamagedCorridorException(mission.corridor());
-        }
-        if (!vehicle.supportsCorridor(mission.corridor())) {
-            return {false, "Vehicle cannot use the requested corridor"};
+        const RouteEvaluation route = RouteGraph{}.evaluate(mission.corridor(), vehicle);
+        if (!route.reachable) {
+            if (route.damaged) throw DamagedCorridorException(mission.corridor());
+            return {false, route.message};
         }
 
         const double requiredFuel = vehicle.fuelRequired(mission.distanceKm());
@@ -67,7 +66,8 @@ DispatchResult DispatchCoordinator::dispatch(ReliefMission& mission,
         }
 
         std::ostringstream message;
-        message << "Dispatch completed; consumed " << allocated.quantity() << ' '
+        message << "Dispatch completed via " << route.message << "; consumed "
+                << allocated.quantity() << ' '
                 << allocated.category() << " ("
                 << ReliefOps::Logistics::payloadPercent(weight, vehicle.capacityKg())
                 << "% payload) and " << requiredFuel << " litres of fuel";

@@ -16,6 +16,7 @@ add_library(erl_core
     src/Depot.cpp
     src/Vehicle.cpp
     src/Mission.cpp
+    src/Route.cpp
     src/Dispatch.cpp
     src/Persistence.cpp
     src/System.cpp
@@ -24,26 +25,26 @@ add_library(erl_core
 
 target_include_directories(erl_core PUBLIC include)
 if(MSVC)
-    target_compile_options(erl_core PRIVATE /W4)
+    target_compile_options(erl_core PRIVATE /W4 /WX)
 else()
-    target_compile_options(erl_core PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(erl_core PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 add_executable(erl_hub src/main.cpp src/UserInterface.cpp)
 target_link_libraries(erl_hub PRIVATE erl_core)
 if(MSVC)
-    target_compile_options(erl_hub PRIVATE /W4)
+    target_compile_options(erl_hub PRIVATE /W4 /WX)
 else()
-    target_compile_options(erl_hub PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(erl_hub PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 enable_testing()
 add_executable(erl_tests tests/test_main.cpp src/UserInterface.cpp)
 target_link_libraries(erl_tests PRIVATE erl_core)
 if(MSVC)
-    target_compile_options(erl_tests PRIVATE /W4)
+    target_compile_options(erl_tests PRIVATE /W4 /WX)
 else()
-    target_compile_options(erl_tests PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(erl_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 add_test(NAME erl_tests COMMAND erl_tests)
 

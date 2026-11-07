@@ -1,5 +1,18 @@
 ERL-HUB DISPATCH AUDIT
-Mission ID | Type          | Status     | Vehicle | Note
-M-1001     | Medical       | Completed  | V-101   | Emergency clinic supplies delivered
-M-1002     | Shelter       | Pending    | -       | Awaiting vehicle assignment
+RUNTIME POLYMORPHISM DEMONSTRATION
+V-SUCCESS -> kind=Ground, range=780 km, road=yes, airborne=no, life-support=active, beacon=(28.61,77.23)
+PRIORITY DISPATCH ORDER
+Sorted: M-SUCCESS
+Queue: M-SUCCESS
+Registered vehicles: 1
+Network depot capacity: 5000 kg
++----------------+----------------+----------------+----------------+
+| Mission ID      | Type            | Status          | Vehicle         |
++----------------+----------------+----------------+----------------+
+| M-SUCCESS       | Medical         | Completed       | V-SUCCESS       |
++----------------+----------------+----------------+----------------+
+Depot record D-SUCCESS: "D-SUCCESS" "MedicalDepot" 5000 50
+  Cargo: "MED-KIT" "medical" 10 5 1
+Vehicle record V-SUCCESS: "V-SUCCESS" "MedicalTeam" 1000 97.5 0
+History entries: 1
 

@@ -1,5 +1,6 @@
 #include "erl/Mission.h"
 #include "erl/PriorityDispatchQueue.h"
+#include "erl/Route.h"
 #include "erl/System.h"
 #include "erl/UserInterface.h"
 #include "erl/Utilities.h"
@@ -164,6 +165,28 @@ void testUnitIIIInheritanceAndDestruction() {
         owned.reset();
     }
     assert(TransportVehicle::totalRegistered() == before);
+}
+
+void testRouteGraphAndVehicleSuitability() {
+    RouteGraph graph;
+    GroundConvoy ground("G-ROUTE", "Agency", 100.0, 80.0);
+    AmphibiousCraft amphibious("A-ROUTE", "Agency", 100.0, 80.0);
+
+    const auto safeRoad = graph.evaluate("road", ground);
+    assert(safeRoad.reachable);
+    assert(!safeRoad.damaged);
+    assert(safeRoad.message.find("ROAD_CHECKPOINT") != std::string::npos);
+
+    const auto safeFlooded = graph.evaluate("flooded", amphibious);
+    assert(safeFlooded.reachable);
+
+    const auto damaged = graph.evaluate("damaged", amphibious);
+    assert(!damaged.reachable);
+    assert(damaged.damaged);
+
+    const auto unknown = graph.evaluate("unknown", ground);
+    assert(!unknown.reachable);
+    assert(!unknown.damaged);
 }
 
 void testApplicationUsesBothAllocationPathsAndAtomicity() {
@@ -394,6 +417,7 @@ int main() {
     testDynamicManifestDeepCopyAndAnalytics();
     testPolymorphismAndPriorityQueue();
     testUnitIIIInheritanceAndDestruction();
+    testRouteGraphAndVehicleSuitability();
     testApplicationUsesBothAllocationPathsAndAtomicity();
     testPersistenceRoundTrip();
     testUnitIVQueueSortingAndManipulators();

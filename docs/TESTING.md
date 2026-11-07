@@ -7,13 +7,10 @@ The `erl_tests` executable covers:
 - deep-copy behavior of dynamic vehicle manifests and destructor accounting;
 - Unit III abstract-base pointers, virtual-inheritance traits, GPS/life-support composition, runtime dispatch, and virtual destruction;
 - Unit IV priority queues, urgent-mission ordering, stream manipulators, exception paths, restart restoration, corrupted snapshots, invalid records, failed writes, and transactional dispatch failures;
+- Route graph safe-path, vehicle-suitability and damaged-edge evaluation;
 - Phase 5 end-to-end menu input/output, all six sample scenarios, persistent output after reload, and preservation of failed-operation state.
 
 The final audit and correction record is maintained in [docs/AUDIT.md](AUDIT.md).
-- polymorphic vehicle range and virtual-inheritance construction;
-- priority ordering of urgent medical missions;
-- failed-dispatch atomicity;
-- binary save/load round trips.
 
 Run the suite with:
 
@@ -23,5 +20,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-In the current workspace, the MinGW `g++` compiler was also used directly because CMake was not installed. The complete core/test source set compiled with C++17 and `-Wall -Wextra -Wpedantic`, and the executable reported `All ERL-HUB tests passed.` The CMake/CTest command remains the intended project verification path when CMake is available.
+The strict verification command used during the audit compiled the complete source
+set with C++17, `-DNDEBUG`, `-Wall -Wextra -Wpedantic` and `-Werror`; the tests still
+run in Release mode because the test translation unit deliberately keeps its
+assertions active. The executable reported `All ERL-HUB Unit I/II/III/IV tests passed.`
 

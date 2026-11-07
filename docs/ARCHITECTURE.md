@@ -5,11 +5,17 @@
 ERL-HUB is split into four layers:
 
 1. **Domain** (`Cargo`, `DistributionDepot`, `TransportVehicle`, the `ReliefVehicle` hierarchy and `ReliefMission`) owns state and validates local invariants.
-2. **Operations** (`DispatchCoordinator` and `ReliefHub`) applies cross-object rules such as inventory, vehicle capacity, fuel and corridor safety.
+2. **Operations** (`DispatchCoordinator`, `RouteGraph` and `ReliefHub`) applies cross-object rules such as inventory, vehicle capacity, fuel and corridor safety.
 3. **Persistence** (`BinaryPersistence`) serializes a complete snapshot and commits it through a temporary file followed by replacement, so a failed save does not corrupt the previous snapshot.
 4. **Presentation** (`UserInterface` and stream formatters) handles menus, input validation and reports without embedding business rules.
 
 `ReliefHub` is the application façade. It owns depots and vehicles using `std::unordered_map`, missions in a `std::vector`, and dispatch history in a vector. `ReliefVehicle` pointers are used for runtime polymorphism while ownership remains with `std::unique_ptr`.
+
+`RouteGraph` is a deterministic directed graph used by every dispatch. It evaluates
+the requested corridor from a generic `DEPOT` node through a corridor checkpoint to
+`DESTINATION`. Safe edges are checked against the selected vehicle's corridor
+capabilities; damaged edges produce the custom damaged-corridor failure before any
+inventory, fuel or mission state is changed.
 
 ## Repository structure
 
