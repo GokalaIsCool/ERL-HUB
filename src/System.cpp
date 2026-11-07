@@ -69,9 +69,26 @@ DispatchResult ReliefHub::dispatchMission(const std::string& missionId,
     return result;
 }
 
+std::string ReliefHub::runtimeDispatchDemo() const {
+    std::ostringstream report;
+    report << "RUNTIME POLYMORPHISM DEMONSTRATION\n";
+    for (const auto& [id, ownedVehicle] : vehicles_) {
+        const ReliefVehicle* basePointer = ownedVehicle.get();
+        report << id << " -> kind=" << basePointer->kind()
+               << ", range=" << basePointer->rangeKm() << " km"
+               << ", road=" << (basePointer->supportsCorridor("road") ? "yes" : "no")
+               << ", airborne=" << (basePointer->isAirborne() ? "yes" : "no")
+               << ", life-support=" << (basePointer->lifeSupport().active() ? "active" : "inactive")
+               << ", beacon=(" << basePointer->beacon().coordinate().latitude << ','
+               << basePointer->beacon().coordinate().longitude << ")\n";
+    }
+    return report.str();
+}
+
 std::string ReliefHub::auditReport() const {
     std::ostringstream report;
     report << "ERL-HUB DISPATCH AUDIT\n";
+    report << runtimeDispatchDemo();
     report << "Registered vehicles: " << TransportVehicle::totalRegistered() << '\n';
     report << "Network depot capacity: " << DistributionDepot::totalCapacityKg() << " kg\n";
     report << tableSeparator;

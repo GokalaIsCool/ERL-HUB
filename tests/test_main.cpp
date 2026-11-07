@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <iostream>
 #include <sstream>
+#include <type_traits>
 
 using namespace erl;
 
@@ -110,6 +111,49 @@ void testPolymorphismAndPriorityQueue() {
     assert(queue.pop().id() == "med");
 }
 
+void testUnitIIIInheritanceAndDestruction() {
+    static_assert(std::is_abstract_v<ReliefVehicle>);
+    static_assert(std::is_base_of_v<ReliefVehicle, FuelPoweredVehicle>);
+    static_assert(std::is_base_of_v<ReliefVehicle, FloatCapableVehicle>);
+
+    GroundConvoy ground("G", "Agency", 100.0, 80.0, {28.61, 77.23});
+    AerialTransport aerial("A", "Agency", 100.0, 80.0, {28.61, 77.23});
+    AmphibiousCraft amphibious("H", "Agency", 100.0, 80.0, {28.61, 77.23});
+    ReliefVehicle* groundBase = &ground;
+    ReliefVehicle* aerialBase = &aerial;
+    ReliefVehicle* amphibiousBase = &amphibious;
+
+    assert(groundBase->kind() == "Ground");
+    assert(aerialBase->kind() == "Aerial");
+    assert(amphibiousBase->kind() == "Amphibious");
+    assert(groundBase->rangeKm() == 640.0);
+    assert(aerialBase->rangeKm() == 320.0);
+    assert(amphibiousBase->rangeKm() == 400.0);
+    assert(!groundBase->supportsCorridor("flooded"));
+    assert(aerialBase->supportsCorridor("flooded"));
+    assert(amphibiousBase->supportsCorridor("flooded"));
+    assert(amphibiousBase->beacon().coordinate().latitude == 28.61);
+    assert(amphibiousBase->lifeSupport().active());
+    assert(!amphibiousBase->isAirborne());
+
+    ReliefHub hub;
+    hub.loadDemoScenario();
+    const auto runtimeReport = hub.runtimeDispatchDemo();
+    assert(runtimeReport.find("Ground") != std::string::npos);
+    assert(runtimeReport.find("Aerial") != std::string::npos);
+    assert(runtimeReport.find("Amphibious") != std::string::npos);
+
+    const int before = TransportVehicle::totalRegistered();
+    {
+        std::unique_ptr<ReliefVehicle> owned = std::make_unique<AmphibiousCraft>("D", "Agency", 50.0, 10.0);
+        ReliefVehicle* basePointer = owned.get();
+        assert(basePointer->kind() == "Amphibious");
+        assert(TransportVehicle::totalRegistered() == before + 1);
+        owned.reset();
+    }
+    assert(TransportVehicle::totalRegistered() == before);
+}
+
 void testApplicationUsesBothAllocationPathsAndAtomicity() {
     ReliefHub hub;
     hub.loadDemoScenario();
@@ -148,7 +192,8 @@ int main() {
     testUnitIIValueSemanticsAndOperators();
     testDynamicManifestDeepCopyAndAnalytics();
     testPolymorphismAndPriorityQueue();
+    testUnitIIIInheritanceAndDestruction();
     testApplicationUsesBothAllocationPathsAndAtomicity();
     testPersistenceRoundTrip();
-    std::cout << "All ERL-HUB Unit I/II tests passed.\n";
+    std::cout << "All ERL-HUB Unit I/II/III tests passed.\n";
 }
