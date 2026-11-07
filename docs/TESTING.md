@@ -2,8 +2,9 @@
 
 The `erl_tests` executable covers:
 
-- overloaded inventory allocation and reference semantics;
-- deep-copy behavior of dynamic vehicle manifests;
+- Unit I distance/payload utilities, both overloaded allocation paths, reference-returning operators, and friend triage override;
+- Unit II encapsulated cargo/depot/vehicle values, static analytics, stream/operator round trips, and dynamic manifests;
+- deep-copy behavior of dynamic vehicle manifests and destructor accounting;
 - polymorphic vehicle range and virtual-inheritance construction;
 - priority ordering of urgent medical missions;
 - failed-dispatch atomicity;

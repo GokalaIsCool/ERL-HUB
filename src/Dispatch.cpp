@@ -1,6 +1,80 @@
 #include "erl/Dispatch.h"
+
+#include "erl/Utilities.h"
+
 #include <sstream>
+
 namespace erl {
-DispatchResult DispatchCoordinator::dispatch(ReliefMission&m,DistributionDepot&d,ReliefVehicle&v){try{if(m.status()==MissionStatus::Completed||m.status()==MissionStatus::Dispatched)return{false,"Mission has already been dispatched"};if(v.status()!=VehicleStatus::Available)return{false,"Vehicle is not available"};const auto*s=d.cargo(m.cargoId());if(!s||s->quantity()<m.quantity())return{false,"Insufficient depot inventory"};double w=m.quantity()*s->unitWeightKg();if(!v.canCarry(w))throw CargoOverweightException(w+v.manifestWeightKg(),v.capacityKg());if(m.corridor()=="damaged")throw DamagedCorridorException(m.corridor());if(!v.supportsCorridor(m.corridor()))return{false,"Vehicle cannot use the requested corridor"};double fuel=v.fuelRequired(m.distanceKm());if(v.fuelLitres()<fuel)throw FuelDepletionException(fuel,v.fuelLitres());ReliefCargo a;if(!ReliefOps::Inventory::allocateSupply(d,m.cargoId(),m.quantity(),a))return{false,"Inventory changed before dispatch could commit"};try{v+=a;v.setFuelLitres(v.fuelLitres()-fuel);v.setStatus(VehicleStatus::InTransit);m.assignVehicle(v.id());m.markDispatched();m.markCompleted();v-=a;v.setStatus(VehicleStatus::Available);}catch(...){d+=a;throw;}std::ostringstream o;o<<"Dispatch completed; consumed "<<a.quantity()<<' '<<a.category()<<" and "<<fuel<<" litres of fuel";return{true,o.str()};}catch(const std::exception&e){return{false,e.what()};}}
+
+DispatchResult DispatchCoordinator::dispatch(ReliefMission& mission,
+                                              DistributionDepot& depot,
+                                              ReliefVehicle& vehicle) {
+    try {
+        if (mission.status() == MissionStatus::Completed || mission.status() == MissionStatus::Dispatched) {
+            return {false, "Mission has already been dispatched"};
+        }
+        if (vehicle.status() != VehicleStatus::Available) {
+            return {false, "Vehicle is not available"};
+        }
+
+        const ReliefCargo* stock = depot.cargo(mission.cargoId());
+        if (stock == nullptr || stock->quantity() < mission.quantity()) {
+            return {false, "Insufficient depot inventory"};
+        }
+
+        const double weight = mission.quantity() * stock->unitWeightKg();
+        if (!vehicle.canCarry(weight)) {
+            throw CargoOverweightException(weight + vehicle.manifestWeightKg(), vehicle.capacityKg());
+        }
+        if (mission.corridor() == "damaged") {
+            throw DamagedCorridorException(mission.corridor());
+        }
+        if (!vehicle.supportsCorridor(mission.corridor())) {
+            return {false, "Vehicle cannot use the requested corridor"};
+        }
+
+        const double requiredFuel = vehicle.fuelRequired(mission.distanceKm());
+        if (vehicle.fuelLitres() < requiredFuel) {
+            throw FuelDepletionException(requiredFuel, vehicle.fuelLitres());
+        }
+
+        ReliefCargo allocated;
+        // Urgent medical missions use the ID overload; other missions use the
+        // call-by-reference overload. Both paths commit through the same guard.
+        if (mission.type() == MissionType::Medical) {
+            if (!ReliefOps::Inventory::allocateSupply(depot, mission.cargoId(), mission.quantity(), allocated)) {
+                return {false, "Inventory changed before dispatch could commit"};
+            }
+        } else {
+            ReliefCargo sourceCopy = *stock;
+            if (!ReliefOps::Inventory::allocateSupply(depot, sourceCopy, mission.quantity(), allocated)) {
+                return {false, "Inventory changed before dispatch could commit"};
+            }
+        }
+
+        try {
+            vehicle += allocated;
+            vehicle.setFuelLitres(vehicle.fuelLitres() - requiredFuel);
+            vehicle.setStatus(VehicleStatus::InTransit);
+            mission.assignVehicle(vehicle.id());
+            mission.markDispatched();
+            mission.markCompleted();
+            vehicle -= allocated;
+            vehicle.setStatus(VehicleStatus::Available);
+        } catch (...) {
+            depot += allocated;
+            throw;
+        }
+
+        std::ostringstream message;
+        message << "Dispatch completed; consumed " << allocated.quantity() << ' '
+                << allocated.category() << " ("
+                << ReliefOps::Logistics::payloadPercent(weight, vehicle.capacityKg())
+                << "% payload) and " << requiredFuel << " litres of fuel";
+        return {true, message.str()};
+    } catch (const std::exception& exception) {
+        return {false, exception.what()};
+    }
 }
 
+} // namespace erl
