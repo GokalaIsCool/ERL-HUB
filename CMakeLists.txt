@@ -11,6 +11,7 @@ endif()
 
 add_library(erl_core
     src/Types.cpp
+    src/Exceptions.cpp
     src/Cargo.cpp
     src/Depot.cpp
     src/Vehicle.cpp

@@ -1,48 +1,9 @@
 #pragma once
-
 #include "erl/Types.h"
-
 #include <iosfwd>
 #include <string>
-
-namespace erl {
-
-class IncidentCommander;
-
-class ReliefMission {
-public:
-    ReliefMission() = default;
-    ReliefMission(std::string id, MissionType type, std::string originDepot,
-                  std::string destination, std::string cargoId, int quantity,
-                  double distanceKm, std::string corridor, int priority = 3);
-    ~ReliefMission() = default;
-
-    const std::string& id() const noexcept { return id_; }
-    MissionStatus status() const noexcept { return status_; }
-    void assignVehicle(const std::string& vehicleId);
-
-private:
-    friend class IncidentCommander;
-    std::string id_;
-    MissionType type_{MissionType::Food};
-    std::string originDepot_;
-    std::string destination_;
-    std::string cargoId_;
-    int quantity_{0};
-    double distanceKm_{0.0};
-    std::string corridor_;
-    int priority_{3};
-    MissionStatus status_{MissionStatus::Planned};
-};
-
-class IncidentCommander {
-public:
-    static void overrideCriticalTriage(ReliefMission&, int urgencyScore);
-};
-
-struct UrgentMedicalFirst {
-    bool operator()(const ReliefMission&, const ReliefMission&) const noexcept;
-};
-
+namespace erl { class IncidentCommander; class BinaryPersistence;
+class ReliefMission { public: ReliefMission() = default; ReliefMission(std::string, MissionType, std::string, std::string, std::string, int, double, std::string, int = 3); const std::string& id() const noexcept { return id_; } MissionType type() const noexcept { return type_; } const std::string& originDepot() const noexcept { return originDepot_; } const std::string& destination() const noexcept { return destination_; } const std::string& cargoId() const noexcept { return cargoId_; } int quantity() const noexcept { return quantity_; } double distanceKm() const noexcept { return distanceKm_; } const std::string& corridor() const noexcept { return corridor_; } int priority() const noexcept { return priority_; } MissionStatus status() const noexcept { return status_; } const std::string& assignedVehicleId() const noexcept { return assignedVehicleId_; } bool critical() const noexcept { return critical_; } void assignVehicle(const std::string&); void markDispatched(); void markCompleted(); void markFailed(); int triageScore() const noexcept; friend class IncidentCommander; friend class BinaryPersistence; friend std::ostream& operator<<(std::ostream&, const ReliefMission&); friend std::istream& operator>>(std::istream&, ReliefMission&); private: std::string id_; MissionType type_{MissionType::Food}; std::string originDepot_; std::string destination_; std::string cargoId_; int quantity_{0}; double distanceKm_{0.0}; std::string corridor_; int priority_{3}; MissionStatus status_{MissionStatus::Planned}; std::string assignedVehicleId_; bool critical_{false}; };
+class IncidentCommander { public: static void overrideCriticalTriage(ReliefMission&, int); }; struct UrgentMedicalFirst { bool operator()(const ReliefMission&, const ReliefMission&) const noexcept; };
 } // namespace erl
 
