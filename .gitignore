@@ -1,5 +1,7 @@
 /build/
 /build-*/
+/output/
+/tmp/
 *.exe
 *.o
 *.obj
