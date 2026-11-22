@@ -10,6 +10,15 @@ save/load.
 This is an academic simulation for CIC-211. It does not connect to live vehicles,
 GPS services, maps, agencies or external emergency-management systems.
 
+## Project contributors
+
+| Contributor | Enrollment number | Main contribution |
+|---|---|---|
+| Abhishek Narayan Padhi | `00896402725` | Project setup and architecture, Unit III inheritance and polymorphism, Unit IV persistence, exceptions, STL and integration. |
+| Ashish Thakur | `02496402725` | Unit I foundations and Unit II classes, encapsulation, operators, dynamic memory and deep-copy work. |
+
+The contribution split above records the team allocation used for this submission.
+
 ## What is implemented
 
 - Ground, aerial and amphibious relief vehicles with runtime polymorphism.
